@@ -1,3 +1,4 @@
+import checkUA from '@server/api/kinobaza';
 import RottenTomatoes from '@server/api/rating/rottentomatoes';
 import TheMovieDb from '@server/api/themoviedb';
 import { MediaType } from '@server/constants/media';
@@ -19,7 +20,39 @@ tvRoutes.get('/:id', async (req, res, next) => {
 
     const media = await Media.getMedia(tv.id, MediaType.TV);
 
-    return res.status(200).json(mapTvDetails(tv, media));
+    const rgx = new RegExp(`/${MediaType.TV}/\\d+/?(?:\\?|$)`);
+    // console.log(
+    //   req.originalUrl,
+    //   req.headers.referer,
+    //   rgx,
+    //   req.headers.referer ? rgx.test(req.headers.referer) : 'no ref'
+    // );
+    // console.log(tmdbMovie.title);
+    // console.log(tmdbMovie.original_title);
+    let ua;
+    if (
+      !req.headers.referer ||
+      (req.headers.referer && rgx.test(req.headers.referer))
+    ) {
+      ua = await checkUA.directFromKinobaza(
+        MediaType.TV,
+        tv.name,
+        tv.original_name,
+        tv.first_air_date,
+        tv.last_air_date
+      );
+    }
+
+    // console.log(ua?.found, ua?.query);
+    // console.log(ua);
+    // console.log(tv.last_air_date, tv.last_episode_to_air);
+
+    return res.status(200).json(
+      mapTvDetails(tv, media, {
+        audio: ua?.mostRelevant?.uaAudio,
+        subs: ua?.mostRelevant?.uaSubs,
+      })
+    );
   } catch (e) {
     logger.debug('Something went wrong retrieving series', {
       label: 'API',
