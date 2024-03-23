@@ -1,7 +1,10 @@
 import type { MediaType } from '@server/constants/media';
+import logger from '@server/logger';
 import axios, { AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { decode } from 'html-entities';
+import path from 'path';
 
 interface ICheckUaResult {
   title: string;
@@ -23,6 +26,7 @@ interface ICheckUa {
   };
   mostRelevant: ICheckUaResult | null;
   results: ICheckUaResult[];
+  fromCache?: boolean;
 }
 
 function parseSingle(src: string, rgx: RegExp) {
@@ -39,7 +43,28 @@ function parseArray(src: string, rgx: RegExp) {
 }
 
 class checkUA {
+  static cacheFile = process.env.CONFIG_DIRECTORY
+    ? `${process.env.CONFIG_DIRECTORY}/kinobazaCache.json`
+    : path.join(__dirname, '../../config/kinobazaCache.json');
+  // static DBget(tmdbId: number) {
+  //   const db = new sqlite3.Database(
+  //     process.env.CONFIG_DIRECTORY
+  //       ? `${process.env.CONFIG_DIRECTORY}/db/kinobazaCache.db`
+  //       : path.join(__dirname, '../../config/db/kinobazaCache.db')
+  //   );
+  //   db.run(`CREATE TABLE IF NOT EXISTS cache(
+  //     tmdbId INTEGER PRIMARY KEY,
+  //     data BLOB NOT NULL
+  //   )`);
+  //   const row: { data?: ICheckUa } = db
+  //     .prepare(`SELECT data FROM cache WHERE tmdbId = ?`)
+  //     .get(tmdbId);
+  //   db.close();
+  //   return row ? row.data : undefined;
+  // }
+
   public static async directFromKinobaza(
+    tmdbId: number,
     type: MediaType,
     title: string,
     originalTitle: string,
@@ -135,7 +160,7 @@ class checkUA {
           // TODO: запит на кінобазу з авторизацією і звірка по imdb
         }
 
-        return {
+        const result = {
           found: parseInt(parseSingle(data, /Знайдено\s+(\d+)\s+резул/)),
           query: {
             type,
@@ -146,15 +171,46 @@ class checkUA {
           mostRelevant,
           results,
         };
+
+        if (mostRelevant?.uaAudio && existsSync(this.cacheFile)) {
+          const cache: { [key: number]: ICheckUa } = JSON.parse(
+            readFileSync(this.cacheFile).toString()
+          );
+          cache[tmdbId] = result;
+          writeFileSync(this.cacheFile, JSON.stringify(cache));
+        }
+
+        return result;
       }
     } catch (err) {
       if (err instanceof AxiosError) {
-        console.error(err.code, err.message);
+        logger.error(`Axios error with code ${err.code}`, {
+          label: 'checkUA',
+          errorMessage: err.message,
+        });
       } else if (err instanceof Error) {
-        console.error(err.message);
+        logger.error(`Error directFromKinobaza`, {
+          label: 'checkUA',
+          errorMessage: err.message,
+        });
       } else {
-        console.error(err);
+        logger.error(`Unknown error on directFromKinobaza`, {
+          label: 'checkUA',
+        });
       }
+    }
+  }
+
+  public static async fromCache(tmdbId: number): Promise<ICheckUa | undefined> {
+    if (!existsSync(this.cacheFile)) {
+      writeFileSync(this.cacheFile, '{}');
+    }
+
+    const cache: { [key: number]: ICheckUa } = JSON.parse(
+      readFileSync(this.cacheFile).toString()
+    );
+    if (cache[tmdbId]) {
+      return { ...cache[tmdbId], fromCache: true };
     }
   }
 }

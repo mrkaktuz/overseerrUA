@@ -1,6 +1,7 @@
 import checkUA from '@server/api/kinobaza';
 import RottenTomatoes from '@server/api/rating/rottentomatoes';
 import TheMovieDb from '@server/api/themoviedb';
+import { type TmdbTvDetails } from '@server/api/themoviedb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import logger from '@server/logger';
@@ -13,7 +14,7 @@ const tvRoutes = Router();
 tvRoutes.get('/:id', async (req, res, next) => {
   const tmdb = new TheMovieDb();
   try {
-    const tv = await tmdb.getTvShow({
+    const tv: TmdbTvDetails = await tmdb.getTvShow({
       tvId: Number(req.params.id),
       language: (req.query.language as string) ?? req.locale,
     });
@@ -34,16 +35,19 @@ tvRoutes.get('/:id', async (req, res, next) => {
       !req.headers.referer ||
       (req.headers.referer && rgx.test(req.headers.referer))
     ) {
-      ua = await checkUA.directFromKinobaza(
-        MediaType.TV,
-        tv.name,
-        tv.original_name,
-        tv.first_air_date,
-        tv.last_air_date
-      );
+      ua =
+        (await checkUA.fromCache(tv.id)) ||
+        (await checkUA.directFromKinobaza(
+          tv.id,
+          MediaType.TV,
+          tv.name,
+          tv.original_name,
+          tv.first_air_date,
+          tv.last_air_date
+        ));
     }
 
-    // console.log(ua?.found, ua?.query);
+    // console.log(ua?.found, ua?.fromCache, ua?.query);
     // console.log(ua);
     // console.log(tv.last_air_date, tv.last_episode_to_air);
 

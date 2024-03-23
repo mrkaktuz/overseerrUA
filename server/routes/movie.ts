@@ -3,6 +3,7 @@ import IMDBRadarrProxy from '@server/api/rating/imdbRadarrProxy';
 import RottenTomatoes from '@server/api/rating/rottentomatoes';
 import { type RatingResponse } from '@server/api/ratings';
 import TheMovieDb from '@server/api/themoviedb';
+import { type TmdbMovieDetails } from '@server/api/themoviedb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import logger from '@server/logger';
@@ -16,7 +17,7 @@ movieRoutes.get('/:id', async (req, res, next) => {
   const tmdb = new TheMovieDb();
 
   try {
-    const tmdbMovie = await tmdb.getMovie({
+    const tmdbMovie: TmdbMovieDetails = await tmdb.getMovie({
       movieId: Number(req.params.id),
       language: (req.query.language as string) ?? req.locale,
     });
@@ -37,15 +38,18 @@ movieRoutes.get('/:id', async (req, res, next) => {
       !req.headers.referer ||
       (req.headers.referer && rgx.test(req.headers.referer))
     ) {
-      ua = await checkUA.directFromKinobaza(
-        MediaType.MOVIE,
-        tmdbMovie.title,
-        tmdbMovie.original_title,
-        tmdbMovie.release_date
-      );
+      ua =
+        (await checkUA.fromCache(tmdbMovie.id)) ||
+        (await checkUA.directFromKinobaza(
+          tmdbMovie.id,
+          MediaType.MOVIE,
+          tmdbMovie.title,
+          tmdbMovie.original_title,
+          tmdbMovie.release_date
+        ));
     }
 
-    // console.log(ua?.found, ua?.query);
+    // console.log(ua?.found, ua?.fromCache, ua?.query);
     // console.log(ua);
 
     return res.status(200).json(
