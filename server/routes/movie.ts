@@ -1,7 +1,9 @@
+import checkUA from '@server/api/kinobaza';
 import IMDBRadarrProxy from '@server/api/rating/imdbRadarrProxy';
 import RottenTomatoes from '@server/api/rating/rottentomatoes';
 import { type RatingResponse } from '@server/api/ratings';
 import TheMovieDb from '@server/api/themoviedb';
+import { type TmdbMovieDetails } from '@server/api/themoviedb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import logger from '@server/logger';
@@ -15,14 +17,47 @@ movieRoutes.get('/:id', async (req, res, next) => {
   const tmdb = new TheMovieDb();
 
   try {
-    const tmdbMovie = await tmdb.getMovie({
+    const tmdbMovie: TmdbMovieDetails = await tmdb.getMovie({
       movieId: Number(req.params.id),
       language: (req.query.language as string) ?? req.locale,
     });
 
     const media = await Media.getMedia(tmdbMovie.id, MediaType.MOVIE);
 
-    return res.status(200).json(mapMovieDetails(tmdbMovie, media));
+    const rgx = new RegExp(`/${MediaType.MOVIE}/\\d+/?(?:\\?|$)`);
+    // console.log(
+    //   req.originalUrl,
+    //   req.headers.referer,
+    //   rgx,
+    //   req.headers.referer ? rgx.test(req.headers.referer) : 'no ref'
+    // );
+    // console.log(tmdbMovie.title);
+    // console.log(tmdbMovie.original_title);
+    let ua;
+    if (
+      !req.headers.referer ||
+      (req.headers.referer && rgx.test(req.headers.referer))
+    ) {
+      ua =
+        (await checkUA.fromCache(tmdbMovie.id)) ||
+        (await checkUA.directFromKinobaza(
+          tmdbMovie.id,
+          MediaType.MOVIE,
+          tmdbMovie.title,
+          tmdbMovie.original_title,
+          tmdbMovie.release_date
+        ));
+    }
+
+    // console.log(ua?.found, ua?.fromCache, ua?.query);
+    // console.log(ua);
+
+    return res.status(200).json(
+      mapMovieDetails(tmdbMovie, media, {
+        audio: ua?.mostRelevant?.uaAudio,
+        subs: ua?.mostRelevant?.uaSubs,
+      })
+    );
   } catch (e) {
     logger.debug('Something went wrong retrieving movie', {
       label: 'API',
