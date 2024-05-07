@@ -2,6 +2,7 @@ import React from 'react';
 
 export type AvailableLocale =
   | 'ar'
+  | 'bg'
   | 'ca'
   | 'cs'
   | 'da'
@@ -9,8 +10,11 @@ export type AvailableLocale =
   | 'en'
   | 'el'
   | 'es'
+  | 'fi'
   | 'fr'
   | 'hr'
+  | 'he'
+  | 'hi'
   | 'hu'
   | 'it'
   | 'ja'
@@ -21,11 +25,12 @@ export type AvailableLocale =
   | 'pl'
   | 'pt-BR'
   | 'pt-PT'
+  | 'ro'
   | 'ru'
   | 'sq'
   | 'sr'
   | 'sv'
-  | 'uk-UA'
+  | 'uk'
   | 'zh-CN'
   | 'zh-TW';
 
@@ -35,6 +40,10 @@ type AvailableLanguageObject = Record<
 >;
 
 export const availableLanguages: AvailableLanguageObject = {
+  bg: {
+    code: 'bg',
+    display: 'Bulgarian',
+  },
   ca: {
     code: 'ca',
     display: 'Català',
@@ -59,9 +68,21 @@ export const availableLanguages: AvailableLanguageObject = {
     code: 'es',
     display: 'Español',
   },
+  fi: {
+    code: 'fi',
+    display: 'Finnish',
+  },
   fr: {
     code: 'fr',
     display: 'Français',
+  },
+  he: {
+    code: 'he',
+    display: 'Hebrew',
+  },
+  hi: {
+    code: 'hi',
+    display: 'Hindi',
   },
   hr: {
     code: 'hr',
@@ -111,6 +132,10 @@ export const availableLanguages: AvailableLanguageObject = {
     code: 'el',
     display: 'Ελληνικά',
   },
+  ro: {
+    code: 'ro',
+    display: 'Romanian',
+  },
   ru: {
     code: 'ru',
     display: 'pусский 💩',
@@ -134,6 +159,10 @@ export const availableLanguages: AvailableLanguageObject = {
   ko: {
     code: 'ko',
     display: '한국어',
+  },
+  uk: {
+    code: 'uk',
+    display: 'українська мова',
   },
   'zh-TW': {
     code: 'zh-TW',
