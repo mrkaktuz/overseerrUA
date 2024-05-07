@@ -144,10 +144,6 @@ export const availableLanguages: AvailableLanguageObject = {
     code: 'sr',
     display: 'српски језик',
   },
-  'uk-UA': {
-    code: 'uk-UA',
-    display: 'Українська',
-  },
   ar: {
     code: 'ar',
     display: 'العربية',
@@ -162,7 +158,7 @@ export const availableLanguages: AvailableLanguageObject = {
   },
   uk: {
     code: 'uk',
-    display: 'українська мова',
+    display: 'Українська',
   },
   'zh-TW': {
     code: 'zh-TW',
