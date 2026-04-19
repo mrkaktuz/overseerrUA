@@ -10,7 +10,7 @@ on:
         type: boolean
         default: false
 
-# Only one run at a time — cancel any queued run if a new one starts
+# Only one run at a time
 concurrency:
   group: sync-upstream
   cancel-in-progress: true
@@ -25,7 +25,6 @@ jobs:
       contents: write
       packages: write
       issues: write
-      workflows: write
 
     steps:
       - name: Checkout main-UA-version
@@ -77,13 +76,20 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         id: merge
         run: |
-          if git merge _upstream-fetch \
-              --no-edit \
-              -m "chore: merge upstream ${{ steps.upstream.outputs.tag }}"; then
-            echo "failed=false" >> "$GITHUB_OUTPUT"
-          else
+          # Merge without committing so we can restore our workflow files first
+          git merge _upstream-fetch --no-commit --no-edit || true
+
+          if git ls-files --unmerged | grep -q .; then
+            # Real conflicts exist
             git merge --abort || true
             echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            # Restore our .github/workflows to prevent touching workflow files
+            # (GITHUB_TOKEN cannot push workflow file changes)
+            git checkout HEAD -- .github/workflows/
+            git commit -m "chore: merge upstream ${{ steps.upstream.outputs.tag }}" \
+              --allow-empty
+            echo "failed=false" >> "$GITHUB_OUTPUT"
           fi
           git tag -d _upstream-fetch || true
 
@@ -108,7 +114,6 @@ jobs:
             core.setFailed(`Merge conflict with upstream ${tag} — issue created`);
 
       # After every merge, ensure the fork-specific display name for Russian stays.
-      # The upstream may change it back to plain 'русский'.
       - name: Restore fork-specific patches
         if: steps.check.outputs.skip != 'true' && steps.merge.outputs.failed != 'true'
         run: |
@@ -116,7 +121,7 @@ jobs:
             const fs = require('fs');
             const file = 'src/context/LanguageContext.tsx';
             let src = fs.readFileSync(file, 'utf8');
-            src = src.replace(/display: '[Рр]усский'(?!\s*💩)/, \"display: 'pусский 💩'\");
+            src = src.replace(/display: '[Рр]усский'(?!\\s*💩)/, \"display: 'pусский 💩'\");
             fs.writeFileSync(file, src);
           "
           if ! git diff --quiet; then
@@ -127,11 +132,8 @@ jobs:
         if: steps.check.outputs.skip != 'true' && steps.merge.outputs.failed != 'true'
         run: |
           UA_TAG="${{ steps.upstream.outputs.ua_tag }}"
-          # Create tag only if it doesn't exist yet
-          git tag "$UA_TAG" 2>/dev/null || echo "Local tag already exists, skipping"
-          # Push branch — ignore if already up to date
+          git tag "$UA_TAG" 2>/dev/null || echo "Tag already exists locally"
           git push origin main-UA-version || true
-          # Push tag — ignore if already exists on remote
           git push origin "$UA_TAG" || git push --force origin "$UA_TAG"
 
       - name: Set up QEMU
@@ -170,7 +172,6 @@ jobs:
           script: |
             const upTag = '${{ steps.upstream.outputs.tag }}';
             const uaTag = '${{ steps.upstream.outputs.ua_tag }}';
-            // Skip if release already exists
             try {
               await github.rest.repos.getReleaseByTag({
                 owner: context.repo.owner,
