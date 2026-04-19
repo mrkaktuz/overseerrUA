@@ -19,6 +19,8 @@ jobs:
   sync-and-release:
     name: Merge upstream, build & push Docker
     runs-on: ubuntu-22.04
+    # Only run when triggered manually or by schedule, not on every push
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     permissions:
       contents: write
       packages: write
