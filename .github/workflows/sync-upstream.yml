@@ -31,13 +31,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # sct-tools/overseerr is the upstream Overseerr repo (referenced as sct:develop in merge history)
+      # sct/overseerr is the upstream Overseerr repo (referenced as sct:develop in merge history)
       - name: Get latest upstream release tag
         id: upstream
         run: |
           TAG=$(curl -sf \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/sct-tools/overseerr/releases/latest" \
+            "https://api.github.com/repos/sct/overseerr/releases/latest" \
             | jq -r '.tag_name')
           if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
             echo "::error::Could not fetch upstream release tag"
@@ -62,7 +62,7 @@ jobs:
       - name: Add upstream remote and fetch tag
         if: steps.check.outputs.skip != 'true'
         run: |
-          git remote add upstream https://github.com/sct-tools/overseerr.git
+          git remote add upstream https://github.com/sct/overseerr.git
           git fetch upstream "refs/tags/${{ steps.upstream.outputs.tag }}:refs/tags/_upstream-fetch"
 
       - name: Merge upstream tag into main-UA-version
@@ -94,7 +94,7 @@ jobs:
                 '',
                 '**Action needed:** resolve conflicts manually and push to `main-UA-version`.',
                 '',
-                `Upstream release: https://github.com/sct-tools/overseerr/releases/tag/${tag}`,
+                `Upstream release: https://github.com/sct/overseerr/releases/tag/${tag}`,
               ].join('\n'),
             });
             core.setFailed(`Merge conflict with upstream ${tag} — issue created`);
@@ -166,7 +166,7 @@ jobs:
               name: uaTag,
               target_commitish: 'main-UA-version',
               body: [
-                `Based on upstream [${upTag}](https://github.com/sct-tools/overseerr/releases/tag/${upTag}).`,
+                `Based on upstream [${upTag}](https://github.com/sct/overseerr/releases/tag/${upTag}).`,
                 '',
                 '### UA additions',
                 '- 🇺🇦 Перевірка наявності UA аудіо/субтитрів через [Kinobaza](https://kinobaza.com.ua)',
