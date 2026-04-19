@@ -10,6 +10,11 @@ on:
         type: boolean
         default: false
 
+# Only one run at a time — cancel any queued run if a new one starts
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: true
+
 jobs:
   sync-and-release:
     name: Merge upstream, build & push Docker
@@ -120,9 +125,12 @@ jobs:
         if: steps.check.outputs.skip != 'true' && steps.merge.outputs.failed != 'true'
         run: |
           UA_TAG="${{ steps.upstream.outputs.ua_tag }}"
-          git tag "$UA_TAG"
-          git push origin main-UA-version
-          git push origin "$UA_TAG"
+          # Create tag only if it doesn't exist yet
+          git tag "$UA_TAG" 2>/dev/null || echo "Local tag already exists, skipping"
+          # Push branch — ignore if already up to date
+          git push origin main-UA-version || true
+          # Push tag — ignore if already exists on remote
+          git push origin "$UA_TAG" || git push --force origin "$UA_TAG"
 
       - name: Set up QEMU
         if: steps.check.outputs.skip != 'true' && steps.merge.outputs.failed != 'true'
@@ -160,6 +168,16 @@ jobs:
           script: |
             const upTag = '${{ steps.upstream.outputs.tag }}';
             const uaTag = '${{ steps.upstream.outputs.ua_tag }}';
+            // Skip if release already exists
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: uaTag,
+              });
+              console.log(`Release ${uaTag} already exists, skipping`);
+              return;
+            } catch {}
             await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
